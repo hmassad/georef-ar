@@ -1,0 +1,15 @@
+{
+  "name": "georef-ar",
+  "version": "1.0.0",
+  "main": "app.js",
+  "repository": "https://github.com/hmassad/georef-ar.git",
+  "author": "Hernán Massad <hernan.massad@mitrol.net>",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "express": "^4.17.1"
+  },
+  "devDependencies": {
+    "eslint": "^6.4.0"
+  }
+}
