@@ -5,67 +5,47 @@ const express = require('express')
 const app = express()
 const port = 3000
 
-app.get('/', (req, res) => res.send('Hello World!'))
-
 const fs = require('fs');
 
 const localidades = JSON.parse(fs.readFileSync('datos-gobierno/localidades.json'))
 const departamentos = JSON.parse(fs.readFileSync('datos-gobierno/departamentos.json'))
 const provincias = JSON.parse(fs.readFileSync('datos-gobierno/provincias.json'))
 
-let all = []
-provincias.forEach(provincia => {
-
-    const p1 = {
-        id: provincia.id,
-        n: provincia.nombre,
+const geo = provincias.map(esta_provincia => {
+    return {
+        id: esta_provincia.id,
+        n: esta_provincia.nombre,
         geo: {
-            lat: provincia.centroide.lat,
-            lon: provincia.centroide.lon,
+            lat: esta_provincia.centroide.lat,
+            lon: esta_provincia.centroide.lon,
         },
-        dep: []
-    }
-
-    departamentos.forEach(departamento => {
-        if (departamento.provincia.id === p1.id)
-        {
-            const d1 = {
-                id: departamento.id,
-                n: departamento.nombre,
-                geo: {
-                    lat: departamento.centroide.lat,
-                    lon: departamento.centroide.lon,
-                },
-                loc: []
-            }
-
-            localidades.forEach(localidad => {
-
-                if (localidad.departamento.id === d1.id)
-                {
-                    const l1 = {
-                        id: localidad.id,
-                        n: localidad.nombre,
-                        geo: {
-                            lat: localidad.centroide.lat,
-                            lon: localidad.centroide.lon,
-                        },
-                    }
-
-                    d1.loc.push(l1)
+        dep: departamentos
+            .filter(este_departamento => este_departamento.provincia.id === esta_provincia.id)
+            .map(este_departamento => {
+                return {
+                    id: este_departamento.id,
+                    n: este_departamento.nombre,
+                    geo: {
+                        lat: este_departamento.centroide.lat,
+                        lon: este_departamento.centroide.lon,
+                    },
+                    loc: localidades
+                        .filter(esta_localidad => esta_localidad.departamento.id === este_departamento.id)
+                        .map(esta_localidad => {
+                            return {
+                                id: esta_localidad.id,
+                                n: esta_localidad.nombre,
+                                geo: {
+                                    lat: esta_localidad.centroide.lat,
+                                    lon: esta_localidad.centroide.lon,
+                                }
+                            }
+                        })
                 }
-            })
-
-            p1.dep.push(d1)
-        }
-    })
-
-    all.push(p1)
+        })
+    }
 })
 
-app.get('/localidades', (req, res) => res.send(JSON.stringify(localidades)))
-app.get('/departamentos', (req, res) => res.send(JSON.stringify(departamentos)))
-app.get('/provincias', (req, res) => res.send(JSON.stringify(provincias)))
-app.get('/all', (req, res) => res.send(JSON.stringify(all)))
+app.get('/geo', (req, res) => res.send(JSON.stringify(geo)))
 
-app.listen(port, () => console.log(`Example app listening on port ${port}!`))
+app.listen(port, () => console.log(`Listening on port ${port}!`))

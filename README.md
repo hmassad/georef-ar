@@ -17,3 +17,9 @@ correr la app con
 ```bash
 node app.js
 ```
+
+## API
+
+### GET /geo
+
+Devuelve todas las provincias, departamentos y localidades, con sus centroides
