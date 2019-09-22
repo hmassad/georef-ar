@@ -1,6 +1,7 @@
 # georef-ar
 
 [Servicio de normalización de datos geográficos](https://datos.gob.ar/dataset/modernizacion-servicio-normalizacion-datos-geograficos)
+
 [Vigilancia de Infecciones respiratorias agudas](https://datos.gob.ar/dataset/salud-vigilancia-infecciones-respiratorias-agudas)
 
 ## install and run
@@ -8,7 +9,7 @@
 después de clonar, instalar dependencias con yarn
 
 ```bash
-yarn
+yarn install
 ```
 
 correr la app con
