@@ -7,7 +7,8 @@
   "license": "MIT",
   "private": true,
   "dependencies": {
-    "express": "^4.17.1"
+    "express": "^4.17.1",
+    "unquote": "^1.1.1"
   },
   "devDependencies": {
     "eslint": "^6.4.0"
