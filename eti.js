@@ -7,7 +7,7 @@ const port = 3000
 const fs = require('fs')
 const unquote = require('unquote')
 
-const localidades = JSON.parse(fs.readFileSync('datos-gobierno/localidades.json'))
+// const localidades = JSON.parse(fs.readFileSync('datos-gobierno/localidades.json'))
 const departamentos = JSON.parse(fs.readFileSync('datos-gobierno/departamentos.json'))
 const provincias = JSON.parse(fs.readFileSync('datos-gobierno/provincias.json'))
 
@@ -17,7 +17,7 @@ const leerCSV = (file) => {
 
     let isFirstLine = true
 
-    fs.readFileSync(file, 'utf-8').split('\r\n').forEach(line => {
+    fs.readFileSync(file, 'utf-8').replace('\r', '').split('\n').forEach(line => {
         if(isFirstLine)
         {
             isFirstLine = false
@@ -48,6 +48,8 @@ let casos = [
     ...leerCSV('datos-gobierno/vigilancia-de-infecciones-respiratorias-agudas-201907.csv')
 ]
 
+console.log(`casos: ` + casos.length)
+
 const eti = provincias.map(esta_provincia => {
     return {
         id: esta_provincia.id,
@@ -66,18 +68,6 @@ const eti = provincias.map(esta_provincia => {
                         lat: este_departamento.centroide.lat,
                         lon: este_departamento.centroide.lon,
                     },
-                    loc: localidades
-                        .filter(esta_localidad => esta_localidad.departamento.id === este_departamento.id)
-                        .map(esta_localidad => {
-                            return {
-                                id: esta_localidad.id,
-                                n: esta_localidad.nombre,
-                                geo: {
-                                    lat: esta_localidad.centroide.lat,
-                                    lon: esta_localidad.centroide.lon,
-                                }
-                            }
-                        }),
                     casos: casos
                         // TODO hay un problema con los códigos de departamento, por ejemplo departamento_id: 94014 no existe en departamentos.json, pero sí existe 94015
                         .filter(este_caso => este_caso.provincia_id.padStart(2, '0') + este_caso.departamento_id.padStart(3, 0) === este_departamento.id)
@@ -96,5 +86,20 @@ const eti = provincias.map(esta_provincia => {
     }
 })
 app.get('/eti', (req, res) => res.send(JSON.stringify(eti)))
+
+
+const huerfanas = casos
+    .filter(este_caso => este_caso.evento_nombre === 'Enfermedad tipo influenza (ETI)')
+    .filter(este_caso => este_caso.provincia_id.padStart(2, '0') + este_caso.departamento_id.padStart(3, 0) === este_departamento.id)
+    .map(este_caso => {
+        return {
+            y: este_caso.anio,
+            epiw: este_caso.semanas_epidemiologicas,
+            gid: este_caso.grupo_edad_id,
+            g: este_caso.grupo_edad_desc,
+            q: este_caso.cantidad_casos,
+        }
+    })
+app.get('/huerfanas', (req, res) => res.send(JSON.stringify(huerfanas)))
 
 app.listen(port, () => console.log(`Listening on port ${port}!`))
