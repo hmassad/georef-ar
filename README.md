@@ -36,8 +36,8 @@ Devuelve todas las provincias y departamentos, con sus centroides
             }
             d: [ // departamentos
                 {
-                    id
-                    n
+                    id: string,
+                    n: string, // nombre
                     g: { // centroide
                         lat: float,
                         lon: float
@@ -53,26 +53,28 @@ Devuelve todas las provincias y departamentos, con sus centroides
 
 ```js
 {
-    p: [
+    p: [ // provincias
         {
             id: string,
             n: string, // nombre
-            g: {
+            g: { // centroide
                 lat: float,
                 lon: float
             }
-            d: [
+            d: [ // departamentos
                 {
                     id: string,
                     n: string, // nombre
                     g: { // centroide
                         lat: float,
                         lon: float
-                    }
-                    c: [
-                        y: string
-                        w: string
-                        q: int
+                    },
+                    c: [ // casos
+                        {
+                            y: string, // año
+                            w: string, // semana empidemilógica
+                            q: int // cantidad de casos
+                        }
                     ]
                 }
             ]
