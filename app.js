@@ -32,10 +32,59 @@ const geo = {
             }})
     }})
 }
-
 app.get('/geo', (req, res) => res.json(geo))
 
-const leerCSV = (file) => {
+const loadPopulationCSV = (file) => {
+
+    const r = []
+
+    let isFirstLine = true
+
+    fs.readFileSync(file, 'utf-8').split('\n').forEach(line => {
+        if(isFirstLine)
+        {
+            isFirstLine = false
+            return
+        }
+
+        line = line.substring(0, line.length - 1) // eliminar \r, revisar
+        
+        const columns = line.split(',')
+
+        r.push({
+            id: columns[0].padStart(5, '0'),
+            //n: columns[1]},
+            p: [
+                {y: "2010", p: parseInt(columns[2], 10)},
+                {y: "2011", p: parseInt(columns[3], 10)},
+                {y: "2012", p: parseInt(columns[4], 10)},
+                {y: "2013", p: parseInt(columns[5], 10)},
+                {y: "2014", p: parseInt(columns[6], 10)},
+                {y: "2015", p: parseInt(columns[7], 10)},
+                {y: "2016", p: parseInt(columns[8], 10)},
+                {y: "2017", p: parseInt(columns[9], 10)},
+                {y: "2018", p: parseInt(columns[10], 10)},
+                {y: "2019", p: parseInt(columns[11], 10)},
+                {y: "2020", p: parseInt(columns[12], 10)},
+                {y: "2021", p: parseInt(columns[13], 10)},
+                {y: "2022", p: parseInt(columns[14], 10)},
+                {y: "2023", p: parseInt(columns[15], 10)},
+                {y: "2024", p: parseInt(columns[16], 10)},
+                {y: "2025", p: parseInt(columns[17], 10)},
+            ]
+        })
+    })
+    
+    return r
+}
+
+const population = [
+    ...loadPopulationCSV('datos-gobierno/proy_1025.csv'),
+]
+app.get('/pop', (req, res) => res.json(population))
+
+
+const loadCasesCSV = (file) => {
 
     const r = []
 
@@ -68,10 +117,10 @@ const leerCSV = (file) => {
     return r
 }
 
-let cases = [
-    ...leerCSV('datos-gobierno/informacion-publica-respiratorias-nacional-hasta-20180626.csv'),
-    ...leerCSV('datos-gobierno/vigilancia-de-infecciones-respiratorias-agudas-20181228.csv'),
-    ...leerCSV('datos-gobierno/vigilancia-de-infecciones-respiratorias-agudas-201907.csv')
+const cases = [
+    ...loadCasesCSV('datos-gobierno/informacion-publica-respiratorias-nacional-hasta-20180626.csv'),
+    ...loadCasesCSV('datos-gobierno/vigilancia-de-infecciones-respiratorias-agudas-20181228.csv'),
+    ...loadCasesCSV('datos-gobierno/vigilancia-de-infecciones-respiratorias-agudas-201907.csv')
 ]
 .filter(este_caso => este_caso.evento_nombre === 'Enfermedad tipo influenza (ETI)')
 
@@ -122,7 +171,14 @@ const eti = {
                                 group = {
                                     y: case_.anio,
                                     w: case_.semanas_epidemiologicas,
-                                    q: 0
+                                    q: 0,
+                                    p: population
+                                        .filter(p => p.id == este_departamento.id) // filtro por departamento
+                                        .map(p => p.p)
+                                        .find(() => true)
+                                        .find(p => p.y == case_.anio) // busco por año
+                                        // .map(p => p.y) // tomo el valor de población
+                                        .p
                                 }
                                 groups.push(group)
                             }
@@ -132,6 +188,15 @@ const eti = {
 
                             return groups
                         }, [])
+
+                        // TODO eliminar y calcular con el mismo mecanismo que para realtime
+                        .map(c => { // calcular tasa por 10.000 habitantes
+                            c.r = c.q / c.p * 10000
+                            if (c.r > 109){ // threshold de 109/10.000 según ?
+                                console.log(`${esta_provincia.nombre} - ${este_departamento.nombre} - ${c.y} - ${c.w} - ${c.q} - ${c.r}`)
+                            }
+                            return c
+                        })
                 }
         })
     }})

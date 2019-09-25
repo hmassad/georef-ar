@@ -1,8 +1,10 @@
 # georef-ar
 
-[Servicio de normalización de datos geográficos](https://datos.gob.ar/dataset/modernizacion-servicio-normalizacion-datos-geograficos)
+[Dataset de datos geográficos normalizados, Ministerio de Modernización](https://datos.gob.ar/dataset/modernizacion-servicio-normalizacion-datos-geograficos)
 
-[Vigilancia de Infecciones respiratorias agudas](https://datos.gob.ar/dataset/salud-vigilancia-infecciones-respiratorias-agudas)
+[Dataset de Vigilancia de Infecciones respiratorias agudas, Ministerio de Modernización](https://datos.gob.ar/dataset/salud-vigilancia-infecciones-respiratorias-agudas)
+
+[Proyecciones y estimaciones de Población por departamento, INDEC](https://www.indec.gob.ar/indec/web/Nivel4-Tema-2-24-119)
 
 ## install and run
 
@@ -49,7 +51,27 @@ Devuelve todas las provincias y departamentos, con sus centroides
 }
 ```
 
+### GET /pop
+
+Devuelve las proyecciones de población por ao y por departamento
+
+```js
+[
+    {
+        id: string, // id del departamento
+        p: [ // población
+            {
+                y: string, // año
+                p: int, // cantidad de habitantes
+            }
+        ]
+    }
+]
+```
+
 ### GET /eti
+
+Devuelve las provincias, departamentos y casos históricos
 
 ```js
 {
@@ -73,7 +95,9 @@ Devuelve todas las provincias y departamentos, con sus centroides
                         {
                             y: string, // año
                             w: string, // semana empidemilógica
-                            q: int // cantidad de casos
+                            q: int, // cantidad de casos
+                            p: int, // población
+                            r: float // casos cada 10.000
                         }
                     ]
                 }
