@@ -22,4 +22,61 @@ node app.js
 
 ### GET /geo
 
-Devuelve todas las provincias, departamentos y localidades, con sus centroides
+Devuelve todas las provincias y departamentos, con sus centroides
+
+```js
+{
+    p: [ // provincias
+        {
+            id: string,
+            n: string, // nombre
+            g: { // centroide
+                lat: float,
+                lon: float
+            }
+            d: [ // departamentos
+                {
+                    id
+                    n
+                    g: { // centroide
+                        lat: float,
+                        lon: float
+                    }
+                }
+            ]
+        }
+    ]
+}
+```
+
+### GET /eti
+
+```js
+{
+    p: [
+        {
+            id: string,
+            n: string, // nombre
+            g: {
+                lat: float,
+                lon: float
+            }
+            d: [
+                {
+                    id: string,
+                    n: string, // nombre
+                    g: { // centroide
+                        lat: float,
+                        lon: float
+                    }
+                    c: [
+                        y: string
+                        w: string
+                        q: int
+                    ]
+                }
+            ]
+        }
+    ]
+}
+```
