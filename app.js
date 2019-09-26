@@ -4,6 +4,7 @@ const express = require('express')
 const app = express()
 const fs = require('fs')
 const unquote = require('unquote')
+const elasticsearch = require('elasticsearch')
 
 // config de salida del servidor web
 app.set('json spaces', 0);
@@ -192,9 +193,9 @@ const eti = {
                         // TODO eliminar y calcular con el mismo mecanismo que para realtime
                         .map(c => { // calcular tasa por 10.000 habitantes
                             c.r = c.q / c.p * 10000
-                            if (c.r > 109){ // threshold de 109/10.000 según ?
-                                console.log(`${esta_provincia.nombre} - ${este_departamento.nombre} - ${c.y} - ${c.w} - ${c.q} - ${c.r}`)
-                            }
+                            // if (c.r > 109){ // threshold de 109/10.000 según ?
+                            //     console.log(`${esta_provincia.nombre} - ${este_departamento.nombre} - ${c.y} - ${c.w} - ${c.q} - ${c.r}`)
+                            // }
                             return c
                         })
                 }
@@ -215,5 +216,107 @@ cases.forEach(este_caso => {
     huerfanas.push(este_caso)
 })
 app.get('/huerfanas', (req, res) => res.json(huerfanas)) // tiene que devolver [] si no hay casos huérfanos
+
+
+
+
+// meter todo en elasticsearch
+
+const elasticsearchClient = new elasticsearch.Client( {
+    hosts: [
+        'http://localhost:9200/',
+    ]
+})
+
+// // check health
+// elasticsearchClient.cluster.health({}, (err, resp/*, status*/) => {
+//     console.log("Elasticsearch cluster health: ", resp)
+// })
+
+async function run() {
+    const INDEX = 'eti'
+
+    // borrar el índice si ya existe
+    if(await elasticsearchClient.indices.exists({index: INDEX}))
+        await elasticsearchClient.indices.delete({index: INDEX})
+
+    // crear el índice
+    await elasticsearchClient.indices.create({
+        index: INDEX,
+        body: {
+            mappings: {
+                properties: {
+                    y: { type: 'integer' },
+                    w: { type: 'integer' },
+                    q: { type: 'integer' },
+                    p: { type: 'integer' },
+                    r: { type: 'float' },
+                    d_id: {type: "keyword"},
+                    d_n: {type: "keyword"},
+                    d_g: {type: "geo_point"},
+                    p_id: {type: "keyword"},
+                    p_n: {type: "keyword"},
+                    p_g: {type: "geo_point"},
+                }
+            }
+        }
+    }, { ignore: [400] })
+
+    // aplastar la jerarquía Ⓐ
+    const reqBody = []
+    eti.p.forEach(p => {
+        p.d.forEach(d => {
+            d.c.forEach(c => {
+                reqBody.push({ index: { _index: INDEX }})
+                reqBody.push({
+                    y: c.y,
+                    w: c.w,
+                    q: c.q,
+                    p: c.p,
+                    r: c.r,
+                    d_id: d.id,
+                    d_n: d.n,
+                    d_g: d.g,
+                    p_id: p.id,
+                    p_n:  p.n,
+                    p_g: p.g,
+                })
+            })
+        })
+    })
+
+    const bulkResponse = await elasticsearchClient.bulk({
+        refresh: true,
+        index: INDEX,
+        body: reqBody
+    })
+
+    if (bulkResponse.errors) {
+        const erroredDocuments = []
+        // The items array has the same order of the dataset we just indexed.
+        // The presence of the `error` key indicates that the operation
+        // that we did for the document has failed.
+        bulkResponse.items.forEach(action => {
+            const operation = Object.keys(action)[0]
+            if (action[operation].error) {
+                erroredDocuments.push({
+                    // If the status is 429 it means that you can retry the document,
+                    // otherwise it's very likely a mapping error, and you should
+                    // fix the document before to try it again.
+                    status: action[operation].status,
+                    error: action[operation].error,
+                    // operation: body[i * 2],
+                    // document: body[i * 2 + 1]
+                })
+            }
+        })
+        console.log(erroredDocuments)
+    }
+
+    // contar la cantidad de documentos que se insertaron
+    const count = await elasticsearchClient.count({ index: INDEX })
+    console.log(count)
+}
+run().catch(console.log)
 
 app.listen(port, () => console.log(`Listening on port ${port}!`))

@@ -53,7 +53,7 @@ Devuelve todas las provincias y departamentos, con sus centroides
 
 ### GET /pop
 
-Devuelve las proyecciones de población por ao y por departamento
+Devuelve las proyecciones de población por año y por departamento
 
 ```js
 [
