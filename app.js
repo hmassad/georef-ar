@@ -143,6 +143,19 @@ cases.forEach(caso => {
     }
 })
 
+/** transforma un agrupamiento de casos en un único caso */
+const expandCases = (cases) => {
+    const r = []
+    cases.forEach(case_ => {
+        for (let i = 0; i < case_.q; i++)
+            r.push(...case_) // una copia del caso
+    })
+    r.forEach(case_ => {
+        delete case_.q // borrar cantidad de cada caso
+    })
+    return r
+}
+
 const eti = {
     p: provincias.map(esta_provincia => { return {
         id: esta_provincia.id,
@@ -161,43 +174,26 @@ const eti = {
                         lat: este_departamento.centroide.lat,
                         lon: este_departamento.centroide.lon,
                     },
-                    c: cases
+                    c: expandCases(cases
                         .filter(este_caso => este_caso.provincia_id.padStart(2, '0') + este_caso.departamento_id.padStart(3, '0') == este_departamento.id)
-                        .reduce((groups, case_) => { // agrupar y sumar los casos del mismo momento pero diferente rango de edades
-                            // buscar el grupo que corresponde
-                            let group = groups.find(g => g.y === case_.anio && g.w === case_.semanas_epidemiologicas)
-
-                            if (!group) {
-                                // no existe, crear el grupo
-                                group = {
-                                    y: case_.anio,
-                                    w: case_.semanas_epidemiologicas,
-                                    q: 0,
-                                    p: population
-                                        .filter(p => p.id == este_departamento.id) // filtro por departamento
-                                        .map(p => p.p)
-                                        .find(() => true)
-                                        .find(p => p.y == case_.anio) // busco por año
-                                        // .map(p => p.y) // tomo el valor de población
-                                        .p
-                                }
-                                groups.push(group)
-                            }
-
-                            // sumar la cantidad al grupo
-                            group.q += parseInt(case_.cantidad_casos, 10)
-
-                            return groups
-                        }, [])
-
-                        // TODO eliminar y calcular con el mismo mecanismo que para realtime
+                        .map(case_ => { return {
+                            y: case_.anio,
+                            w: case_.semanas_epidemiologicas,
+                            eid: case_.grupo_edad_id,
+                            e: case_.grupo_edad_desc,
+                            q: case_.cantidad_casos,
+                            p: population
+                                .filter(p => p.id == este_departamento.id) // filtro por departamento
+                                .map(p => p.p)
+                                .find(() => true)
+                                .find(p => p.y == case_.anio) // busco por año
+                                // .map(p => p.y) // tomo el valor de población
+                                .p
+                            }})
                         .map(c => { // calcular tasa por 10.000 habitantes
                             c.r = c.q / c.p * 10000
-                            // if (c.r > 109){ // threshold de 109/10.000 según ?
-                            //     console.log(`${esta_provincia.nombre} - ${este_departamento.nombre} - ${c.y} - ${c.w} - ${c.q} - ${c.r}`)
-                            // }
                             return c
-                        })
+                        }))
                 }
         })
     }})
@@ -248,7 +244,8 @@ async function run() {
                 properties: {
                     y: { type: 'integer' },
                     w: { type: 'integer' },
-                    q: { type: 'integer' },
+                    e_id: {type: 'keyword' },
+                    e_n: {type: 'keyword' },
                     p: { type: 'integer' },
                     r: { type: 'float' },
                     d_id: {type: "keyword"},
@@ -271,7 +268,8 @@ async function run() {
                 reqBody.push({
                     y: c.y,
                     w: c.w,
-                    q: c.q,
+                    e_id: c.eid,
+                    e_n: c.e,
                     p: c.p,
                     r: c.r,
                     d_id: d.id,
