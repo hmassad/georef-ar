@@ -1,3 +1,5 @@
+# https://stackoverflow.com/a/55957214/526760
+
 version: '3'
 
 services:

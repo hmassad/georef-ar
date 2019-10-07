@@ -37,7 +37,7 @@ app.get('/geo', (req, res) => res.json(geo))
 
 const loadPopulationCSV = (file) => {
 
-    const r = []
+    const population = []
 
     let isFirstLine = true
 
@@ -52,7 +52,7 @@ const loadPopulationCSV = (file) => {
         
         const columns = line.split(',')
 
-        r.push({
+        population.push({
             id: columns[0].padStart(5, '0'),
             //n: columns[1]},
             p: [
@@ -76,7 +76,7 @@ const loadPopulationCSV = (file) => {
         })
     })
     
-    return r
+    return population
 }
 
 const population = [
@@ -87,7 +87,7 @@ app.get('/pop', (req, res) => res.json(population))
 
 const loadCasesCSV = (file) => {
 
-    const r = []
+    const cases = []
 
     let isFirstLine = true
 
@@ -101,7 +101,7 @@ const loadCasesCSV = (file) => {
         line = line.substring(0, line.length - 1) // eliminar \r
         
         const columns = line.split(',')
-        r.push({
+        cases.push({
             departamento_id: unquote(columns[0]),
             departamento_nombre: unquote(columns[1]),
             provincia_id: unquote(columns[2]),
@@ -115,7 +115,7 @@ const loadCasesCSV = (file) => {
         })
     })
     
-    return r
+    return cases
 }
 
 const cases = [
@@ -145,15 +145,28 @@ cases.forEach(caso => {
 
 /** transforma un agrupamiento de casos en un único caso */
 const expandCases = (cases) => {
-    const r = []
+    const expandedCases = []
     cases.forEach(case_ => {
         for (let i = 0; i < case_.q; i++)
-            r.push({...case_}) // una copia del caso
+            expandedCases.push({...case_}) // una copia del caso
     })
-    r.forEach(case_ => {
+    expandedCases.forEach(case_ => {
         delete case_.q // borrar cantidad de cada caso
     })
-    return r
+    return expandedCases
+}
+
+const epiWeekToDate = (w, y) => {
+    //w = week number(Ex:12),y = year(Ex:2016)
+    var _days;
+    if (w === 53) {
+        _days = (1 + (w - 1) * 7);
+    } else {
+        _days = (w * 7); 
+    }
+    const _date = new Date(y, 0, _days)
+    _date.setDate(_date.getDate() - _date.getDay())
+    return _date;
 }
 
 /** son todos los casos ordenados tal cual se enviarán a elasticsearch */
@@ -180,21 +193,17 @@ const eti = {
                         .map(case_ => { return {
                             y: case_.anio,
                             w: case_.semanas_epidemiologicas,
+                            date: epiWeekToDate(case_.semanas_epidemiologicas, case_.anio).getTime(),
                             eid: case_.grupo_edad_id,
                             e: case_.grupo_edad_desc,
                             q: case_.cantidad_casos,
                             p: population
                                 .filter(p => p.id == este_departamento.id) // filtro por departamento
-                                .map(p => p.p)
-                                .find(() => true)
+                                .map(p => p.p) // navego a la población
+                                .find(() => true) // el primero y único
                                 .find(p => p.y == case_.anio) // busco por año
-                                // .map(p => p.y) // tomo el valor de población
-                                .p
-                            }})
-                        .map(c => { // calcular tasa por 10.000 habitantes
-                            c.r = c.q / c.p * 10000
-                            return c
-                        }))
+                                .p // tomo el valor
+                        }}))
                 }
         })
     }})
@@ -246,12 +255,10 @@ async function run() {
         body: {
             mappings: {
                 properties: {
-                    y: { type: 'integer' },
-                    w: { type: 'integer' },
+                    date: {type: 'date', format: 'basic_date_time||epoch_millis' },
                     e_id: {type: 'keyword' },
                     e_n: {type: 'keyword' },
                     p: { type: 'integer' },
-                    r: { type: 'float' },
                     d_id: {type: "keyword"},
                     d_n: {type: "keyword"},
                     d_g: {type: "geo_point"},
@@ -272,12 +279,10 @@ async function run() {
             d.c.forEach(c => {
                 allReqBody.push({ index: { _index: INDEX }})
                 allReqBody.push({
-                    y: c.y,
-                    w: c.w,
+                    date: c.date,
                     e_id: c.eid,
                     e_n: c.e,
                     p: c.p,
-                    r: c.r,
                     d_id: d.id,
                     d_n: d.n,
                     d_g: d.g,
@@ -294,7 +299,6 @@ async function run() {
             refresh: true,
             index: INDEX,
             body: allReqBody.splice(0, 100000),
-            maxRetries: 0,
         })
 
         if (bulkResponse.errors) {
