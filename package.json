@@ -6,6 +6,10 @@
   "author": "Hernán Massad <hernan.massad@mitrol.net>",
   "license": "MIT",
   "private": true,
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon index.js"
+  },
   "dependencies": {
     "elasticsearch": "^16.4.0",
     "express": "^4.17.1",
@@ -13,6 +17,7 @@
     "unquote": "^1.1.1"
   },
   "devDependencies": {
-    "eslint": "^6.4.0"
+    "eslint": "^6.4.0",
+    "nodemon": "^1.19.3"
   }
 }

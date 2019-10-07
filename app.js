@@ -148,7 +148,7 @@ const expandCases = (cases) => {
     const r = []
     cases.forEach(case_ => {
         for (let i = 0; i < case_.q; i++)
-            r.push(...case_) // una copia del caso
+            r.push({...case_}) // una copia del caso
     })
     r.forEach(case_ => {
         delete case_.q // borrar cantidad de cada caso
@@ -156,6 +156,7 @@ const expandCases = (cases) => {
     return r
 }
 
+/** son todos los casos ordenados tal cual se enviarán a elasticsearch */
 const eti = {
     p: provincias.map(esta_provincia => { return {
         id: esta_provincia.id,
@@ -233,8 +234,11 @@ async function run() {
     const INDEX = 'eti'
 
     // borrar el índice si ya existe
-    if(await elasticsearchClient.indices.exists({index: INDEX}))
+    console.log(`check if index ${INDEX} exists`)
+    if(await elasticsearchClient.indices.exists({index: INDEX})){
+        console.log(`index ${INDEX} exists, deleting`)
         await elasticsearchClient.indices.delete({index: INDEX})
+    }
 
     // crear el índice
     await elasticsearchClient.indices.create({
@@ -257,15 +261,17 @@ async function run() {
                 }
             }
         }
-    }, { ignore: [400] })
+    })
+    console.log(`index ${INDEX} created`)
 
-    // aplastar la jerarquía Ⓐ
-    const reqBody = []
+    // aplastar la jerarquía Ⓐ y separar en tandas de a 100.000? documentos
+    const allReqBody = []
+
     eti.p.forEach(p => {
         p.d.forEach(d => {
             d.c.forEach(c => {
-                reqBody.push({ index: { _index: INDEX }})
-                reqBody.push({
+                allReqBody.push({ index: { _index: INDEX }})
+                allReqBody.push({
                     y: c.y,
                     w: c.w,
                     e_id: c.eid,
@@ -283,38 +289,24 @@ async function run() {
         })
     })
 
-    const bulkResponse = await elasticsearchClient.bulk({
-        refresh: true,
-        index: INDEX,
-        body: reqBody
-    })
-
-    if (bulkResponse.errors) {
-        const erroredDocuments = []
-        // The items array has the same order of the dataset we just indexed.
-        // The presence of the `error` key indicates that the operation
-        // that we did for the document has failed.
-        bulkResponse.items.forEach(action => {
-            const operation = Object.keys(action)[0]
-            if (action[operation].error) {
-                erroredDocuments.push({
-                    // If the status is 429 it means that you can retry the document,
-                    // otherwise it's very likely a mapping error, and you should
-                    // fix the document before to try it again.
-                    status: action[operation].status,
-                    error: action[operation].error,
-                    // operation: body[i * 2],
-                    // document: body[i * 2 + 1]
-                })
-            }
+    while (allReqBody.length > 0){
+        const bulkResponse = await elasticsearchClient.bulk({
+            refresh: true,
+            index: INDEX,
+            body: allReqBody.splice(0, 100000),
+            maxRetries: 0,
         })
-        console.log(erroredDocuments)
+
+        if (bulkResponse.errors) {
+            console.log(JSON.stringify(bulkResponse))
+        }
     }
 
     // contar la cantidad de documentos que se insertaron
     const count = await elasticsearchClient.count({ index: INDEX })
     console.log(count)
 }
-run().catch(console.log)
+
+run().catch(console.error)
 
 app.listen(port, () => console.log(`Listening on port ${port}!`))
