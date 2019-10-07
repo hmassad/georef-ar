@@ -143,6 +143,20 @@ cases.forEach(caso => {
     }
 })
 
+/** transforma un agrupamiento de casos en un único caso */
+const expandCases = (cases) => {
+    const r = []
+    cases.forEach(case_ => {
+        for (let i = 0; i < case_.q; i++)
+            r.push({...case_}) // una copia del caso
+    })
+    r.forEach(case_ => {
+        delete case_.q // borrar cantidad de cada caso
+    })
+    return r
+}
+
+/** son todos los casos ordenados tal cual se enviarán a elasticsearch */
 const eti = {
     p: provincias.map(esta_provincia => { return {
         id: esta_provincia.id,
@@ -161,43 +175,26 @@ const eti = {
                         lat: este_departamento.centroide.lat,
                         lon: este_departamento.centroide.lon,
                     },
-                    c: cases
+                    c: expandCases(cases
                         .filter(este_caso => este_caso.provincia_id.padStart(2, '0') + este_caso.departamento_id.padStart(3, '0') == este_departamento.id)
-                        .reduce((groups, case_) => { // agrupar y sumar los casos del mismo momento pero diferente rango de edades
-                            // buscar el grupo que corresponde
-                            let group = groups.find(g => g.y === case_.anio && g.w === case_.semanas_epidemiologicas)
-
-                            if (!group) {
-                                // no existe, crear el grupo
-                                group = {
-                                    y: case_.anio,
-                                    w: case_.semanas_epidemiologicas,
-                                    q: 0,
-                                    p: population
-                                        .filter(p => p.id == este_departamento.id) // filtro por departamento
-                                        .map(p => p.p)
-                                        .find(() => true)
-                                        .find(p => p.y == case_.anio) // busco por año
-                                        // .map(p => p.y) // tomo el valor de población
-                                        .p
-                                }
-                                groups.push(group)
-                            }
-
-                            // sumar la cantidad al grupo
-                            group.q += parseInt(case_.cantidad_casos, 10)
-
-                            return groups
-                        }, [])
-
-                        // TODO eliminar y calcular con el mismo mecanismo que para realtime
+                        .map(case_ => { return {
+                            y: case_.anio,
+                            w: case_.semanas_epidemiologicas,
+                            eid: case_.grupo_edad_id,
+                            e: case_.grupo_edad_desc,
+                            q: case_.cantidad_casos,
+                            p: population
+                                .filter(p => p.id == este_departamento.id) // filtro por departamento
+                                .map(p => p.p)
+                                .find(() => true)
+                                .find(p => p.y == case_.anio) // busco por año
+                                // .map(p => p.y) // tomo el valor de población
+                                .p
+                            }})
                         .map(c => { // calcular tasa por 10.000 habitantes
                             c.r = c.q / c.p * 10000
-                            // if (c.r > 109){ // threshold de 109/10.000 según ?
-                            //     console.log(`${esta_provincia.nombre} - ${este_departamento.nombre} - ${c.y} - ${c.w} - ${c.q} - ${c.r}`)
-                            // }
                             return c
-                        })
+                        }))
                 }
         })
     }})
@@ -237,8 +234,11 @@ async function run() {
     const INDEX = 'eti'
 
     // borrar el índice si ya existe
-    if(await elasticsearchClient.indices.exists({index: INDEX}))
+    console.log(`check if index ${INDEX} exists`)
+    if(await elasticsearchClient.indices.exists({index: INDEX})){
+        console.log(`index ${INDEX} exists, deleting`)
         await elasticsearchClient.indices.delete({index: INDEX})
+    }
 
     // crear el índice
     await elasticsearchClient.indices.create({
@@ -248,7 +248,8 @@ async function run() {
                 properties: {
                     y: { type: 'integer' },
                     w: { type: 'integer' },
-                    q: { type: 'integer' },
+                    e_id: {type: 'keyword' },
+                    e_n: {type: 'keyword' },
                     p: { type: 'integer' },
                     r: { type: 'float' },
                     d_id: {type: "keyword"},
@@ -260,18 +261,21 @@ async function run() {
                 }
             }
         }
-    }, { ignore: [400] })
+    })
+    console.log(`index ${INDEX} created`)
 
-    // aplastar la jerarquía Ⓐ
-    const reqBody = []
+    // aplastar la jerarquía Ⓐ y separar en tandas de a 100.000? documentos
+    const allReqBody = []
+
     eti.p.forEach(p => {
         p.d.forEach(d => {
             d.c.forEach(c => {
-                reqBody.push({ index: { _index: INDEX }})
-                reqBody.push({
+                allReqBody.push({ index: { _index: INDEX }})
+                allReqBody.push({
                     y: c.y,
                     w: c.w,
-                    q: c.q,
+                    e_id: c.eid,
+                    e_n: c.e,
                     p: c.p,
                     r: c.r,
                     d_id: d.id,
@@ -285,38 +289,24 @@ async function run() {
         })
     })
 
-    const bulkResponse = await elasticsearchClient.bulk({
-        refresh: true,
-        index: INDEX,
-        body: reqBody
-    })
-
-    if (bulkResponse.errors) {
-        const erroredDocuments = []
-        // The items array has the same order of the dataset we just indexed.
-        // The presence of the `error` key indicates that the operation
-        // that we did for the document has failed.
-        bulkResponse.items.forEach(action => {
-            const operation = Object.keys(action)[0]
-            if (action[operation].error) {
-                erroredDocuments.push({
-                    // If the status is 429 it means that you can retry the document,
-                    // otherwise it's very likely a mapping error, and you should
-                    // fix the document before to try it again.
-                    status: action[operation].status,
-                    error: action[operation].error,
-                    // operation: body[i * 2],
-                    // document: body[i * 2 + 1]
-                })
-            }
+    while (allReqBody.length > 0){
+        const bulkResponse = await elasticsearchClient.bulk({
+            refresh: true,
+            index: INDEX,
+            body: allReqBody.splice(0, 100000),
+            maxRetries: 0,
         })
-        console.log(erroredDocuments)
+
+        if (bulkResponse.errors) {
+            console.log(JSON.stringify(bulkResponse))
+        }
     }
 
     // contar la cantidad de documentos que se insertaron
     const count = await elasticsearchClient.count({ index: INDEX })
     console.log(count)
 }
-run().catch(console.log)
+
+run().catch(console.error)
 
 app.listen(port, () => console.log(`Listening on port ${port}!`))
