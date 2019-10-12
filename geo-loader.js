@@ -30,7 +30,7 @@ const load = () => {
                     lon: province.centroide.lon,
                 },
             },
-            population: population.filter(pop => pop.id == municipality.id),
+            population: population.find(p => p.municipalityId == municipality.id).population,
         }
     })
 
