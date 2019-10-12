@@ -36,14 +36,14 @@ module.exports = ({host, eventsIndex}) => {
                         year: {type: 'integer', },
                         epiweek: {type: 'integer', },
                         age_group: {
-                            type: 'nested',
+                            //type: 'nested',
                             properties: {
                                 id: { type: 'keyword' },
                                 name: {type: 'keyword' },
                             }
                         },
                         municipality: {
-                            type: 'nested',
+                            //type: 'nested',
                             properties: {
                                 id: { type: 'keyword' },
                                 name: {type: 'keyword' },
@@ -51,7 +51,7 @@ module.exports = ({host, eventsIndex}) => {
                             }
                         },
                         province: {
-                            type: 'nested',
+                            //type: 'nested',
                             properties: {
                                 id: { type: 'keyword' },
                                 name: {type: 'keyword' },
