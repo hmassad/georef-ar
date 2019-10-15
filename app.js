@@ -3,11 +3,6 @@ process.stdout.write('\033c') // clear console on startup
 const geoLoader = require('./geo-loader')
 const caseLoader = require('./case-loader')
 
-const elasticsearchClient = require('./elasticsearchClient')({
-    host: process.env.ES_HOST || 'http://localhost:9200/',
-    eventsIndex: process.env.EVENTS_INDEX || 'sdp-cases'
-})
-
 const geo = geoLoader.load()
 
 const cases = caseLoader.load(
@@ -16,24 +11,38 @@ const cases = caseLoader.load(
     'datos-gobierno/vigilancia-de-infecciones-respiratorias-agudas-20181228.csv',
     'datos-gobierno/vigilancia-de-infecciones-respiratorias-agudas-201907.csv')
 
+const elasticsearchClient = require('./elasticsearchClient')({
+    host: process.env.ES_HOST || 'http://localhost:9200/',
+    eventsIndex: process.env.EVENTS_INDEX || 'sdp-cases',
+    ratesIndex: process.env.RATES_INDEX || 'sdp-rates'
+})
+
 async function bootstrap() {
 
-    console.log(`checking elasticsearch connection...`)
-    await elasticsearchClient.checkHealth()
-    console.log(`looking good.`)
+    // console.debug(`checking elasticsearch connection...`)
+    // await elasticsearchClient.checkHealth()
+    // console.log(`looking good.`)
 
-    console.log(`creating event index...`)
-    await elasticsearchClient.createEventsIndex()
-    console.log(`event index created.`)
+    // console.debug(`creating events index...`)
+    // await elasticsearchClient.createEventIndex()
+    // console.log(`events index created.`)
 
-    console.log(`uploading cases...`)
-    await elasticsearchClient.insert(cases)
+    // console.debug(`uploading cases...`)
+    // await elasticsearchClient.bulkInsertCases(cases)
 
-    if ((await elasticsearchClient.count()).count === 455492) {
-        console.log(`cases uploaded.`)
-    } else {
-        throw `not all cases uploaded`
-    }
+    // if ((await elasticsearchClient.count()).count === 455492) {
+    //     console.log(`cases uploaded.`)
+    // } else {
+    //     throw `not all cases uploaded`
+    // }
+
+    console.debug(`creating rate index...`)
+    await elasticsearchClient.createRateIndex()
+    console.log(`rate index created.`)
+
+    console.debug(`calculating rates...`)
+    await elasticsearchClient.calculateRates(geo)
+    console.log(`rates calculated.`)
 }
 
 bootstrap()
