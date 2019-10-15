@@ -17,7 +17,7 @@ yarn install
 correr la app con
 
 ```bash
-node app.js
+yarn start
 ```
 
 ## API
@@ -53,7 +53,7 @@ Devuelve todas las provincias y departamentos, con sus centroides
 
 ### GET /pop
 
-Devuelve las proyecciones de población por ao y por departamento
+Devuelve las proyecciones de población por año y por departamento
 
 ```js
 [
@@ -106,3 +106,9 @@ Devuelve las provincias, departamentos y casos históricos
     ]
 }
 ```
+
+## Artículos que respaldan los hallazgos
+
+Catamarca 29/8/2018
+
+https://www.elancasti.com.ar/info-gral/2018/8/29/bloqueos-de-gripe-h1n1-en-santa-maria-381101.html
