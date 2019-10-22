@@ -1,4 +1,4 @@
-process.stdout.write('\033c') // clear console on startup
+process.stdout.write('\x1Bc') // clear console on startup
 
 const geoLoader = require('./geo-loader')
 const caseLoader = require('./case-loader')
