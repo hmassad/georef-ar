@@ -65,7 +65,7 @@ module.exports = ({host, eventsIndex, ratesIndex}) => {
     this.insertCase = async case_ => {
 
         const response = await elasticsearchClient.index({
-            refresh: true,
+            refresh: 'wait_for', // esperar a que se indexen los casos nuevos. https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-refresh.html#targetText=wait_for,which%20defaults%20to%20one%20second.
             index: eventsIndex,
             body: case_,
         })
@@ -84,10 +84,10 @@ module.exports = ({host, eventsIndex, ratesIndex}) => {
             allReqBody.push({ index: { _index: eventsIndex }})
             allReqBody.push(case_)
         })
-    
+
         while (allReqBody.length > 0){
             const bulkResponse = await elasticsearchClient.bulk({
-                refresh: true,
+                refresh: 'wait_for', // esperar a que se indexen los casos nuevos. https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-refresh.html#targetText=wait_for,which%20defaults%20to%20one%20second.
                 index: eventsIndex,
                 body: allReqBody.splice(0, 10000),
             })
